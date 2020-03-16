@@ -56,5 +56,5 @@ jobs:
         with:
           user: ${{ secrets.DARK_USER }}
           password: ${{ secrets.DARK_PASSWORD }}
-          canvas: dota-dashboad
+          canvas: mousaka-dota-dashboad
           paths: public
