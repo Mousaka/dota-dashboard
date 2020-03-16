@@ -1,5 +1,6 @@
 # Distribution
 build/
+public/
 
 .idea
 # elm-package generated files
