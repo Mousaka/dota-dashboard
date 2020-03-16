@@ -49,6 +49,7 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: elm-app
+          path: public
       # Build, transpile etc.
       - name: Upload static assets to Dark canvas
         uses: gregbrimble/dark-static-assets-action@v1.0.0
