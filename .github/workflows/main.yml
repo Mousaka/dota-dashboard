@@ -7,8 +7,6 @@ name: CI
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -31,4 +29,23 @@ jobs:
     - name: Run a one-line script
       run: |
         echo Building Elm app
-        elm make src/Main.elm
+        mkdir public
+        elm make --output=public/index.html src/Main.elm
+
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1.0.0
+        with:
+          fetch-depth: 1
+      # Build, transpile etc.
+      - name: Upload static assets to Dark canvas
+        uses: gregbrimble/dark-static-assets-action@v1.0.0
+        with:
+          user: ${{ secrets.DARK_USER }}
+          password: ${{ secrets.DARK_PASSWORD }}
+          canvas: dota-dashboad
+          paths: public
