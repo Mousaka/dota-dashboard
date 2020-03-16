@@ -24,23 +24,31 @@ jobs:
       
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
-
-    # Runs a single command using the runners shell
-    - name: Run a one-line script
+    # Builds the elm app
+    - name: Build Elm app
       run: |
         echo Building Elm app
         mkdir public
         elm make --output=public/index.html src/Main.elm
-
+    - name: Upload math result for job 1
+      uses: actions/upload-artifact@v1
+      with:
+        name: elm-app
+        path: public
 
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Checkout
         uses: actions/checkout@v1.0.0
         with:
           fetch-depth: 1
+      - name: Download elm app
+        uses: actions/download-artifact@v1
+        with:
+          name: elm-app
       # Build, transpile etc.
       - name: Upload static assets to Dark canvas
         uses: gregbrimble/dark-static-assets-action@v1.0.0
