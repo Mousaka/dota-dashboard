@@ -55,7 +55,7 @@ update msg model =
         AddUserResponse result ->
             case result of
                 Ok _ ->
-                    ( { model | apiError = Nothing }, Cmd.none )
+                    ( { model | apiError = Nothing }, getWinLoseLastWeek )
 
                 Err _ ->
                     ( { model | apiError = Just "Error with connection to api" }, Cmd.none )
