@@ -20,12 +20,13 @@ type alias Model =
     , steamIdInputField : String
     , apiError : Maybe String
     , users : List UserStats
+    , disableAddUser : Bool
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { usernameInputField = "", steamIdInputField = "", apiError = Nothing, users = [] }, getWinLoseLastWeek )
+    ( { usernameInputField = "", steamIdInputField = "", apiError = Nothing, users = [], disableAddUser = False }, getWinLoseLastWeek )
 
 
 
@@ -50,15 +51,15 @@ update msg model =
             ( { model | steamIdInputField = input }, Cmd.none )
 
         AddButtonClicked ->
-            ( model, addUser model )
+            ( { model | disableAddUser = True }, addUser model )
 
         AddUserResponse result ->
             case result of
                 Ok _ ->
-                    ( { model | apiError = Nothing }, getWinLoseLastWeek )
+                    ( { model | apiError = Nothing, usernameInputField = "", steamIdInputField = "", disableAddUser = False }, getWinLoseLastWeek )
 
                 Err _ ->
-                    ( { model | apiError = Just "Error with connection to api" }, Cmd.none )
+                    ( { model | apiError = Just "Error with connection to api", disableAddUser = False }, Cmd.none )
 
         WinLoseLastWeekResponse result ->
             case result of
@@ -132,8 +133,20 @@ addMeView model =
             , label = Element.Input.labelAbove [] (Element.el [ Element.Font.size 14 ] (Element.text "SteamId"))
             }
         , Element.Input.button [ Element.Border.rounded 3, Element.Border.width 1 ]
-            { onPress = Just AddButtonClicked
-            , label = Element.el [ Element.padding 5 ] (Element.text "Add me")
+            { onPress =
+                if model.disableAddUser then
+                    Nothing
+
+                else
+                    Just AddButtonClicked
+            , label =
+                Element.el [ Element.padding 5 ]
+                    (if model.disableAddUser then
+                        Element.text "adding..."
+
+                     else
+                        Element.text "Add me"
+                    )
             }
         ]
 
