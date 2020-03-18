@@ -5,7 +5,7 @@ import Element
 import Element.Border
 import Element.Font
 import Element.Input
-import Html exposing (Html, div, h1, img, text)
+import Html exposing (Html)
 import Http
 import Json.Decode as JD
 import Json.Encode as JE
@@ -16,8 +16,7 @@ import Json.Encode as JE
 
 
 type alias Model =
-    { usernameInputField : String
-    , steamIdInputField : String
+    { steamIdInputField : String
     , apiError : Maybe String
     , users : List UserStats
     , disableAddUser : Bool
@@ -26,7 +25,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { usernameInputField = "", steamIdInputField = "", apiError = Nothing, users = [], disableAddUser = False }, getWinLoseLastWeek )
+    ( { steamIdInputField = "", apiError = Nothing, users = [], disableAddUser = False }, getWinLoseLastWeek )
 
 
 
@@ -34,8 +33,7 @@ init =
 
 
 type Msg
-    = UsernameChanged String
-    | SteamIdChanged String
+    = SteamIdChanged String
     | AddButtonClicked
     | AddUserResponse (Result Http.Error ())
     | WinLoseLastWeekResponse (Result Http.Error (List UserStats))
@@ -44,9 +42,6 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        UsernameChanged input ->
-            ( { model | usernameInputField = input }, Cmd.none )
-
         SteamIdChanged input ->
             ( { model | steamIdInputField = input }, Cmd.none )
 
@@ -56,7 +51,7 @@ update msg model =
         AddUserResponse result ->
             case result of
                 Ok _ ->
-                    ( { model | apiError = Nothing, usernameInputField = "", steamIdInputField = "", disableAddUser = False }, getWinLoseLastWeek )
+                    ( { model | apiError = Nothing, steamIdInputField = "", disableAddUser = False }, getWinLoseLastWeek )
 
                 Err _ ->
                     ( { model | apiError = Just "Error with connection to api", disableAddUser = False }, Cmd.none )
@@ -102,8 +97,7 @@ addUser model =
         , body =
             Http.jsonBody
                 (JE.object
-                    [ ( "username", JE.string model.usernameInputField )
-                    , ( "steamId", JE.string model.steamIdInputField )
+                    [ ( "steamId", JE.string model.steamIdInputField )
                     ]
                 )
         , expect = Http.expectWhatever AddUserResponse
@@ -119,13 +113,6 @@ addMeView model =
     Element.column [ Element.alignBottom, Element.padding 10, Element.spacing 10 ]
         [ Element.el []
             (Element.text "Add me to the list")
-        , Element.Input.text
-            []
-            { onChange = UsernameChanged
-            , text = model.usernameInputField
-            , placeholder = Nothing
-            , label = Element.Input.labelAbove [] (Element.el [ Element.Font.size 14 ] (Element.text "Username"))
-            }
         , Element.Input.text []
             { onChange = SteamIdChanged
             , text = model.steamIdInputField
