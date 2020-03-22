@@ -158,7 +158,7 @@ view model =
     Element.layout [ Element.padding 50 ] <|
         Element.column [ Element.width Element.fill, Element.height Element.fill ]
             [ Element.row []
-                [ Element.el [ Element.Font.bold ] (Element.text "Last 7 days of dota ") ]
+                [ Element.el [ Element.Font.bold ] (Element.text "This week of dota") ]
             , viewUsers model.users
             , addMeView model
             ]
