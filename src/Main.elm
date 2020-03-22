@@ -59,7 +59,7 @@ update msg model =
         WinLoseLastWeekResponse result ->
             case result of
                 Ok users ->
-                    ( { model | apiError = Nothing, users = users }, Cmd.none )
+                    ( { model | apiError = Nothing, users = users |> bestWinRateSort }, Cmd.none )
 
                 Err error ->
                     ( { model | apiError = Just "Error with connection to api" }, Cmd.none )
@@ -71,6 +71,16 @@ type alias UserStats =
     , win : Int
     , lose : Int
     }
+
+
+bestWinRateSort : List UserStats -> List UserStats
+bestWinRateSort userStats =
+    userStats
+        |> List.sortBy
+            (\u ->
+                (toFloat u.win / toFloat u.lose) |> abs
+            )
+        |> List.reverse
 
 
 userStatsDecoder : JD.Decoder UserStats
@@ -138,18 +148,40 @@ addMeView model =
         ]
 
 
+viewTopUser : UserStats -> Element.Element Msg
+viewTopUser userStats =
+    if userStats.win > 0 && userStats.win // userStats.lose > 0 then
+        Element.row [ Element.spacing 10, Element.Font.extraBold ]
+            [ Element.text ("🔥" ++ userStats.username ++ "🔥")
+            , Element.text (String.fromInt userStats.win ++ " wins")
+            , Element.text (String.fromInt userStats.lose ++ " losses")
+            ]
+
+    else
+        viewUser userStats
+
+
+viewUser : UserStats -> Element.Element Msg
+viewUser userStats =
+    Element.row [ Element.spacing 10 ]
+        [ Element.text userStats.username
+        , Element.text (String.fromInt userStats.win ++ " wins")
+        , Element.text (String.fromInt userStats.lose ++ " losses")
+        ]
+
+
 viewUsers : List UserStats -> Element.Element Msg
 viewUsers users =
     Element.column [ Element.paddingXY 0 10, Element.height Element.fill ]
-        (List.map
-            (\u ->
-                Element.row [ Element.spacing 10 ]
-                    [ Element.text u.username
-                    , Element.text (String.fromInt u.win ++ " wins")
-                    , Element.text (String.fromInt u.lose ++ " losses")
-                    ]
-            )
-            users
+        (case users of
+            [] ->
+                []
+
+            h :: t ->
+                viewTopUser h
+                    :: List.map
+                        viewUser
+                        t
         )
 
 
