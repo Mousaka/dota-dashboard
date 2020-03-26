@@ -8,7 +8,9 @@ import Element.Input
 import Html exposing (Html)
 import Http
 import Json.Decode as JD
+import Json.Decode.Extra as JD
 import Json.Encode as JE
+import Round
 
 
 
@@ -59,18 +61,49 @@ update msg model =
         WinLoseLastWeekResponse result ->
             case result of
                 Ok users ->
-                    ( { model | apiError = Nothing, users = users |> bestWinRateSort }, Cmd.none )
+                    ( { model | apiError = Nothing, users = users }, Cmd.none )
 
                 Err error ->
                     ( { model | apiError = Just "Error with connection to api" }, Cmd.none )
 
 
+type alias Match =
+    { kills : Int
+    , deaths : Int
+    , assists : Int
+    }
+
+
+type alias Kda =
+    { kills : Int
+    , deaths : Int
+    , assists : Int
+    }
+
+
 type alias UserStats =
     { username : String
     , steamId : String
+    , avatar : String
     , win : Int
     , lose : Int
+    , matches : List Match
+    , kda : Kda
     }
+
+
+kda kills deaths assists =
+    toFloat (kills + assists) / toFloat deaths
+
+
+bestKdaSort : List UserStats -> List UserStats
+bestKdaSort userStats =
+    userStats
+        |> List.sortBy
+            (\u ->
+                kda u.kda.kills u.kda.deaths u.kda.assists
+            )
+        |> List.reverse
 
 
 bestWinRateSort : List UserStats -> List UserStats
@@ -78,18 +111,36 @@ bestWinRateSort userStats =
     userStats
         |> List.sortBy
             (\u ->
-                (toFloat u.win / toFloat u.lose) |> abs
+                toFloat u.win / toFloat u.lose
             )
         |> List.reverse
 
 
+matchDecoder : JD.Decoder Match
+matchDecoder =
+    JD.map3 Match
+        (JD.field "kills" JD.int)
+        (JD.field "deaths" JD.int)
+        (JD.field "assists" JD.int)
+
+
 userStatsDecoder : JD.Decoder UserStats
 userStatsDecoder =
-    JD.map4 UserStats
-        (JD.field "username" JD.string)
-        (JD.field "steamId" JD.string)
-        (JD.field "win" JD.int)
-        (JD.field "lose" JD.int)
+    let
+        calcKda : List Match -> Kda
+        calcKda matches =
+            List.foldl (\m acc -> { acc | kills = acc.kills + m.kills, deaths = acc.deaths + m.deaths, assists = acc.assists + m.assists })
+                { kills = 0, deaths = 0, assists = 0 }
+                matches
+    in
+    JD.succeed UserStats
+        |> JD.andMap (JD.field "username" JD.string)
+        |> JD.andMap (JD.field "steamId" JD.string)
+        |> JD.andMap (JD.field "avatar" JD.string)
+        |> JD.andMap (JD.field "win" JD.int)
+        |> JD.andMap (JD.field "lose" JD.int)
+        |> JD.andMap (JD.field "matches" (JD.list matchDecoder))
+        |> JD.andMap (JD.field "matches" (JD.list matchDecoder) |> JD.map calcKda)
 
 
 getWinLoseLastWeek : Cmd Msg
@@ -148,41 +199,113 @@ addMeView model =
         ]
 
 
-viewTopUser : UserStats -> Element.Element Msg
-viewTopUser userStats =
+avatar : String -> Element.Element Msg
+avatar url =
+    Element.image [ Element.height (Element.fill |> Element.maximum 100) ] { src = url, description = "avatar" }
+
+
+viewTopUserWinLoss : UserStats -> Element.Element Msg
+viewTopUserWinLoss userStats =
     if userStats.win > 0 && userStats.win // userStats.lose > 0 then
         Element.row [ Element.spacing 10, Element.Font.extraBold ]
-            [ Element.text ("🔥" ++ userStats.username ++ "🔥")
+            [ avatar userStats.avatar
+            , Element.text ("🔥" ++ userStats.username ++ "🔥")
             , Element.text (String.fromInt userStats.win ++ " wins")
             , Element.text (String.fromInt userStats.lose ++ " losses")
             ]
 
     else
-        viewUser userStats
+        viewUserWinLoss userStats
 
 
-viewUser : UserStats -> Element.Element Msg
-viewUser userStats =
+viewUserWinLoss : UserStats -> Element.Element Msg
+viewUserWinLoss userStats =
     Element.row [ Element.spacing 10 ]
-        [ Element.text userStats.username
+        [ avatar userStats.avatar
+        , Element.text userStats.username
         , Element.text (String.fromInt userStats.win ++ " wins")
         , Element.text (String.fromInt userStats.lose ++ " losses")
         ]
 
 
-viewUsers : List UserStats -> Element.Element Msg
-viewUsers users =
+viewWinLossRatio : List UserStats -> Element.Element Msg
+viewWinLossRatio users =
+    let
+        sortedUsers =
+            users |> bestWinRateSort
+    in
     Element.column [ Element.paddingXY 0 10, Element.height Element.fill ]
-        (case users of
-            [] ->
-                []
+        [ Element.text "Wins vs Losses"
+        , Element.column []
+            (case sortedUsers of
+                [] ->
+                    []
 
-            h :: t ->
-                viewTopUser h
-                    :: List.map
-                        viewUser
-                        t
-        )
+                h :: t ->
+                    viewTopUserWinLoss h
+                        :: List.map
+                            viewUserWinLoss
+                            t
+            )
+        ]
+
+
+viewTopUserKda : UserStats -> Element.Element Msg
+viewTopUserKda userStats =
+    if (userStats.kda.kills + userStats.kda.assists) - userStats.kda.deaths > 0 then
+        Element.row [ Element.spacing 10, Element.Font.extraBold ]
+            [ avatar userStats.avatar
+            , Element.column [ Element.spacing 5 ]
+                [ Element.text ("🔥" ++ userStats.username ++ "🔥")
+                , Element.row [] [ Element.text ((Round.round 2 <| kda userStats.kda.kills userStats.kda.deaths userStats.kda.assists) ++ " KDA") ]
+                , Element.row []
+                    [ Element.text (String.fromInt userStats.kda.kills ++ " / ")
+                    , Element.text (String.fromInt userStats.kda.deaths ++ " / ")
+                    , Element.text (String.fromInt userStats.kda.assists)
+                    ]
+                ]
+            ]
+
+    else
+        viewUserKda userStats
+
+
+viewUserKda : UserStats -> Element.Element Msg
+viewUserKda userStats =
+    Element.row [ Element.spacing 10 ]
+        [ avatar userStats.avatar
+        , Element.column [ Element.spacing 5 ]
+            [ Element.text userStats.username
+            , Element.row [] [ Element.text ((Round.round 2 <| kda userStats.kda.kills userStats.kda.deaths userStats.kda.assists) ++ " KDA") ]
+            , Element.row []
+                [ Element.text (String.fromInt userStats.kda.kills ++ " / ")
+                , Element.text (String.fromInt userStats.kda.deaths ++ " / ")
+                , Element.text (String.fromInt userStats.kda.assists)
+                ]
+            ]
+        ]
+
+
+viewKDA : List UserStats -> Element.Element Msg
+viewKDA users =
+    let
+        sortedUsers =
+            users |> bestKdaSort
+    in
+    Element.column [ Element.paddingXY 0 10, Element.height Element.fill ]
+        [ Element.text "Kills + Assists / Deaths"
+        , Element.column []
+            (case sortedUsers of
+                [] ->
+                    []
+
+                h :: t ->
+                    viewTopUserKda h
+                        :: List.map
+                            viewUserKda
+                            t
+            )
+        ]
 
 
 view : Model -> Html Msg
@@ -191,7 +314,7 @@ view model =
         Element.column [ Element.width Element.fill, Element.height Element.fill ]
             [ Element.row []
                 [ Element.el [ Element.Font.bold ] (Element.text "This week of dota") ]
-            , viewUsers model.users
+            , Element.row [ Element.spacing 40 ] [ viewWinLossRatio model.users, viewKDA model.users ]
             , addMeView model
             ]
 
