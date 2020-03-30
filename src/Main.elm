@@ -92,8 +92,16 @@ type alias UserStats =
     }
 
 
+kda : Int -> Int -> Int -> Float
 kda kills deaths assists =
-    toFloat (kills + assists) / toFloat deaths
+    if kills + assists == 0 then
+        toFloat 0
+
+    else if deaths == 0 then
+        toFloat (kills + assists)
+
+    else
+        toFloat (kills + assists) / toFloat deaths
 
 
 bestKdaSort : List UserStats -> List UserStats
